@@ -78,7 +78,10 @@ class ReplayBuffer(Dataset):
         self.image_size = image_size
         self.transform = transform
         # the proprioceptive obs is stored as float32, pixels obs as uint8
-        obs_dtype = np.float32 if len(obs_shape) == 1 else np.uint8
+
+        #obs_dtype = np.float32 if len(obs_shape) == 1 else np.uint8
+        obs_dtype = np.float32 if len(obs_shape) <= 2 else np.uint8
+        self.obs_dtype = obs_dtype
 
         self.obses = np.empty((capacity, *obs_shape), dtype=obs_dtype)
         self.next_obses = np.empty((capacity, *obs_shape), dtype=obs_dtype)
@@ -224,9 +227,30 @@ class ReplayBuffer(Dataset):
 
     def sample_bc(self):
         for idx in range(0, self.capacity if self.full else self.idx, self.batch_size):
-            obses = torch.as_tensor(random_crop(self.obses[idx: idx + self.batch_size], self.image_size), device=self.device).float() / 255.
-            next_obses = torch.as_tensor(random_crop(self.next_obses[idx: idx + self.batch_size], self.image_size), device=self.device).float() / 255.
-            actions, rewards, not_dones = [torch.as_tensor(k[idx: idx + self.batch_size], device=self.device) for k in [self.actions, self.rewards, self.not_dones]]
+            idxs = range(idx, min(idx + self.batch_size, self.capacity), 1)
+            obses = self.obses[idxs]
+            next_obses = self.next_obses[idxs]
+
+            obses = torch.as_tensor(obses, device=self.device).float()
+            next_obses = torch.as_tensor(next_obses, device=self.device).float()
+            if self.hybrid_states is not None:
+                hybrid_obses = torch.as_tensor(self.hybrid_states[idxs], device=self.device).float()
+                next_hybrid_obses = torch.as_tensor(self.next_hybrid_states[idxs], device=self.device).float()
+                obses = [obses, hybrid_obses]
+                next_obses = [next_obses, next_hybrid_obses]
+
+            actions = torch.as_tensor(self.actions[idxs], device=self.device)
+            rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
+            not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
+            
+            #if self.obs_dtype == np.uint8:
+            #    obses = torch.as_tensor(random_crop(self.obses[idx: idx + self.batch_size], self.image_size), device=self.device).float() / 255.
+            #    next_obses = torch.as_tensor(random_crop(self.next_obses[idx: idx + self.batch_size], self.image_size), device=self.device).float() / 255.
+            #    actions, rewards, not_dones = [torch.as_tensor(k[idx: idx + self.batch_size], device=self.device) for k in [self.actions, self.rewards, self.not_dones]]
+            #elif self.obs_dtype == np.float32 : 
+            #    obses = torch.as_tensor(self.obses[idx: idx + self.batch_size], device=self.device).float() / 255.
+            #    next_obses = torch.as_tensor(self.next_obses[idx: idx + self.batch_size], device=self.device).float() / 255.
+            #    actions, rewards, not_dones = [torch.as_tensor(k[idx: idx + self.batch_size], device=self.device) for k in [self.actions, self.rewards, self.not_dones]]
             yield obses, actions, rewards, next_obses, not_dones
 
     def save(self, save_dir):

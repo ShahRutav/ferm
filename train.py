@@ -16,9 +16,19 @@ from video import VideoRecorder
 
 from curl_sac import CurlSacAgent, RadSacAgent
 from torchvision import transforms
+from core import sample_paths
 
 import env_wrapper
+import pickle
+import os
+import hydra
+from omegaconf import DictConfig, OmegaConf, open_dict
 
+os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
+
+MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
+MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0'}
+RRL_ENCODERS = {'resnet34'}
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -62,7 +72,7 @@ def parse_args():
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
     parser.add_argument('--eval_freq', default=5000, type=int)
-    parser.add_argument('--num_eval_episodes', default=100, type=int)
+    parser.add_argument('--num_eval_episodes', default=25, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
     parser.add_argument('--critic_beta', default=0.9, type=float)
@@ -136,7 +146,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                     else:
                         action = agent.select_action(obs)
                 obs, reward, done, info = env.step(action)
-                if info.get('is_success'):
+                if info.get('is_success') or info.get('goal_achieved'):
                     episode_success = True
                 video.record(env)
                 episode_reward += reward
@@ -179,9 +189,16 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         log_data[key][step]['success_rate'] = success_rate
         log_data[key][step]['std_ep_reward'] = std_ep_reward
         log_data[key][step]['env_step'] = step * args.action_repeat
+        if args.domain_name in MJ_ENVS or args.domain_name in MJRL_ENVS:
+            paths = sample_paths(num_traj=25, env=env, agent=agent , eval_mode = True, 
+                                horizon=env._max_episode_steps, base_seed=123,
+                                num_cpu=1, args=args)
+            success_rate_mjrl = env.evaluate_success(paths)
+            print("Actual Success : ", success_rate_mjrl)
+            L.log('eval/' + prefix + 'success_rate_mjrl', success_rate_mjrl, step)
+            log_data[key][step]['success_rate_mjrl'] = success_rate_mjrl
 
         np.save(filename, log_data)
-
     run_eval_loop(sample_stochastically=False)
     L.dump(step)
     # if hasattr(env.env._env.unwrapped, 'callback'):
@@ -255,11 +272,22 @@ def make_agent(obs_shape, action_shape, args, device, hybrid_state_shape):
     else:
         assert 'agent is not supported: %s' % args.agent
 
+def preprocess_args(args):
+	if args.encoder_type in RRL_ENCODERS:
+		assert(args.agent == 'curl_sac')
+		assert(args.pre_transform_image_size == 224)
+		assert(args.image_size == 224)
+		assert(args.frame_stack == 1)
 
-def main():
-    args = parse_args()
+	if args.encoder_type == 'identity':
+		assert(args.agent == 'curl_sac')
+
+
+@hydra.main(config_name="ferm_mjrl_peg", config_path="config")
+def main(args : DictConfig):
     if args.seed == -1:
-        args.__dict__["seed"] = np.random.randint(1, 1000000)
+        args.__dict__["seed"] = np.random.randint(1, 999)
+    preprocess_args(args)
     exp_id = str(int(np.random.random() * 100000))
     utils.set_seed_everywhere(args.seed)
 
@@ -274,7 +302,8 @@ def main():
         width=args.pre_transform_image_size,
         frame_skip=args.action_repeat,
         reward_type=args.reward_type,
-        change_model=args.change_model
+        change_model=args.change_model,
+        encoder_type = args.encoder_type
     )
 
     env.seed(args.seed)
@@ -284,7 +313,8 @@ def main():
         env.set_special_reset(args.demo_special_reset)
 
     if args.observation_type == 'hybrid':
-        env.set_hybrid_obs()
+        env.set_hybrid_obs(True)
+    print("Hybrid state shape : ", env.hybrid_state_shape)
 
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
@@ -297,7 +327,7 @@ def main():
         env_name = args.domain_name
     else:
         env_name = args.domain_name + '-' + args.task_name
-    exp_name = args.reward_type + '-' + args.agent + '-' + args.encoder_type + '-' + args.data_augs
+    exp_name = args.agent + '-' + args.encoder_type
     exp_name += '-' + ts + '-' + env_name + '-im' + str(args.image_size) + '-b' + str(args.batch_size) + '-nu' + str(args.num_updates)
     if args.observation_type == 'hybrid':
         exp_name += '-hybrid'
@@ -305,22 +335,31 @@ def main():
         exp_name += '-change_model'
     if args.bc_only:
         exp_name += '-bc_only'
+    if args.warmup_offline_sac:
+        exp_name += '-warmup_offline_sac' + str(args.warmup_offline_sac)
 
     exp_name += '-s' + str(args.seed)
 
-    exp_name += '-id' + exp_id
+    #exp_name += '-id' + exp_id
+    exp_name += '-actor_lr' + str(args.actor_lr) + '-critic_lr' + str(args.critic_lr)
+    exp_name += '-ctuf' + str(args.critic_target_update_freq)
+    exp_name += '-critic_tau' + str(args.critic_tau)
+
     args.work_dir = args.work_dir + '/' + exp_name
     utils.make_dir(args.work_dir)
-    video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
+    if args.save_video:
+        video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
     model_dir = utils.make_dir(os.path.join(args.work_dir, 'model'))
-    buffer_dir = utils.make_dir(os.path.join(args.work_dir, 'buffer'))
+    if args.save_buffer:
+        buffer_dir = utils.make_dir(os.path.join(args.work_dir, 'buffer'))
 
     print("Working in directory:", args.work_dir)
 
-    video = VideoRecorder(video_dir if args.save_video else None, camera_id=args.cameras[0])
+    video = VideoRecorder(video_dir if args.save_video else None, camera_id=args.cameras[0], height=100, width=100)
 
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
-        json.dump(vars(args), f, sort_keys=True, indent=4)
+        OmegaConf.save(config=args, f=f.name)
+        #json.dump(vars(args), f, sort_keys=True, indent=4)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -330,6 +369,11 @@ def main():
         cpf = 3 * len(args.cameras)
         obs_shape = (cpf * args.frame_stack, args.image_size, args.image_size)
         pre_aug_obs_shape = (cpf * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
+    elif args.encoder_type in RRL_ENCODERS : 
+        #obs_shape = (args.frame_stack, *env.observation_space.shape)   
+        #pre_aug_obs_shape = (args.frame_stack, *env.observation_space.shape)   
+        obs_shape = env.observation_space.shape # CHANGE : Cannot use frame_stack :(
+        pre_aug_obs_shape = env.observation_space.shape  
     else:
         obs_shape = env.observation_space.shape
         pre_aug_obs_shape = obs_shape
@@ -346,6 +390,7 @@ def main():
     )
 
     if args.demo_model_dir is not None:  # collect demonstrations using a state-trained expert
+        print("Collecting demo {} samples.".format(args.demo_samples))
         episode_step, done = 0, True
         state_obs, obs = None, None
         episode_success = False
@@ -356,17 +401,20 @@ def main():
             original_env = env.env
         else:
             original_env = env
-
-        expert_agent = make_agent(
-            obs_shape=original_env.observation_space.shape,
-            action_shape=action_shape,
-            args=args,
-            device=device,
-            hybrid_state_shape=env.hybrid_state_shape
-        )
+        print(os.getcwd())
+        if isinstance(original_env, env_wrapper.MjrlWrapper):
+            policy = args.demo_model_dir + args.domain_name +  ".pickle"
+            expert_agent = pickle.load(open(policy, 'rb'))
+        else:
+            expert_agent = make_agent(
+                obs_shape=original_env.observation_space.shape,
+                action_shape=action_shape,
+                args=args,
+                device=device,
+                hybrid_state_shape=env.hybrid_state_shape
+            )
+            expert_agent.load(args.demo_model_dir, args.demo_model_step)
         args.encoder_type = original_encoder_type
-        expert_agent.load(args.demo_model_dir, args.demo_model_step)
-        print('Collecting expert trajectories...')
         t = 0
         while t < args.demo_samples:
             if done:
@@ -388,9 +436,12 @@ def main():
                     obs = env.reset()
                     state_obs = original_env._get_state_obs()
 
-            action = expert_agent.sample_action(state_obs)
+            try: # Originally
+                action = expert_agent.sample_action(state_obs)
+            except:  # For mjrl env
+                action = expert_agent.get_action(state_obs)[0]
             next_obs, reward, done, info = env.step(action)
-            if info.get('is_success'):
+            if info.get('is_success') or info.get('goal_achieved'):
                 episode_success = True
             state_obs = original_env._get_state_obs()
 
@@ -445,6 +496,7 @@ def main():
         print('Warmed up cpc.')
 
     if args.warmup_offline_sac:
+        print("warming up sac offline...")
         for i in range(args.warmup_offline_sac):
             agent.update_sac_only(replay_buffer, L, step=0)
 

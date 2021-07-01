@@ -164,7 +164,6 @@ class PixelEncoder(nn.Module):
 class IdentityEncoder(nn.Module):
     def __init__(self, obs_shape, feature_dim, num_layers, num_filters, *args, two_conv=False):
         super().__init__()
-
         assert len(obs_shape) == 1
         self.feature_dim = obs_shape[0]
 
@@ -178,7 +177,7 @@ class IdentityEncoder(nn.Module):
         pass
 
 
-_AVAILABLE_ENCODERS = {'pixel': PixelEncoder, 'identity': IdentityEncoder}
+_AVAILABLE_ENCODERS = {'pixel': PixelEncoder, 'identity': IdentityEncoder, 'resnet34': IdentityEncoder}
 
 
 def make_encoder(

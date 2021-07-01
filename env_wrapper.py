@@ -3,7 +3,16 @@ import numpy as np
 import gym
 import mujoco_py
 from gym.envs.registration import register
+import mjrl
+from mjrl.utils.gym_env import GymEnv
+import mj_envs
+from mjrl.models.feature_extractor import Encoder
+from PIL import Image
+import torch
 
+MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
+MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0'}
+RRL_ENCODERS = {'resnet34'}
 
 def change_fetch_model(change_model):
     import os
@@ -23,8 +32,12 @@ def change_fetch_model(change_model):
 
 
 def make(domain_name, task_name, seed, from_pixels, height, width, cameras=range(1),
-         visualize_reward=False, frame_skip=None, reward_type='dense', change_model=False):
-    if 'RealArm' not in domain_name:
+         visualize_reward=False, frame_skip=None, reward_type='dense', change_model=False, encoder_type=None):
+    if domain_name in MJ_ENVS or domain_name in MJRL_ENVS:
+        env = gym.make(domain_name)
+        print(encoder_type)
+        env = MjrlWrapper(env, from_pixels=from_pixels, cameras=cameras, height=height, width=width, domain_name = domain_name, encoder_type=encoder_type)
+    elif 'RealArm' not in domain_name:
         change_fetch_model(change_model)
         env = gym.make(domain_name, reward_type=reward_type)
         env = GymEnvWrapper(env, from_pixels=from_pixels, cameras=cameras, height=height, width=width)
@@ -39,7 +52,7 @@ def make(domain_name, task_name, seed, from_pixels, height, width, cameras=range
 
 
 class EnvWrapper(gym.Env, ABC):
-    def __init__(self, env, cameras, from_pixels=True, height=100, width=100, channels_first=True):
+    def __init__(self, env, cameras, from_pixels=True, height=100, width=100, channels_first=True, domain_name=None, encoder_type=None):
         camera_0 = {'trackbodyid': -1, 'distance': 1.5, 'lookat': np.array((0.0, 0.6, 0)),
                     'elevation': -45.0, 'azimuth': 90}
         camera_1 = {'trackbodyid': -1, 'distance': 1.5, 'lookat': np.array((0.0, 0.6, 0)),
@@ -64,6 +77,17 @@ class EnvWrapper(gym.Env, ABC):
         self.height = height
         self.width = width
         self.channels_first = channels_first
+        self.domain_name = domain_name
+        self.encoder_type = encoder_type
+        self.rrl = False
+        if self.encoder_type in RRL_ENCODERS:
+            self.rrl = True
+            self.from_pixels = False
+        assert(not(self.rrl and self.from_pixels))
+        if self.rrl :
+            self.rrl_encoder = Encoder(self.encoder_type)
+            self.rrl_encoder.eval()
+            self.transform = self.rrl_encoder.get_image_transform()
 
         self.special_reset = None
         self.special_reset_save = None
@@ -75,10 +99,16 @@ class EnvWrapper(gym.Env, ABC):
             'video.frames_per_second': int(np.round(1.0 / self.dt))
         }
 
-        shape = [3 * len(cameras), height, width] if channels_first else [height, width, 3 * len(cameras)]
-        self._observation_space = gym.spaces.Box(
-            low=0, high=255, shape=shape, dtype=np.uint8
-        )
+        if not self.rrl :
+            shape = [3 * len(cameras), height, width] if channels_first else [height, width, 3 * len(cameras)]
+            self._observation_space = gym.spaces.Box(
+                low=0, high=255, shape=shape, dtype=np.uint8
+            )
+        else :
+            shape = [self.rrl_encoder.num_ftrs * len(cameras)]
+            self._observation_space = gym.spaces.Box(
+                low=-1, high=1, shape=shape, dtype=np.float32
+            )
 
         self._state_obs = None
         self.change_camera()
@@ -89,7 +119,7 @@ class EnvWrapper(gym.Env, ABC):
 
     @property
     def observation_space(self):
-        if self.from_pixels:
+        if self.from_pixels or self.rrl:
             return self._observation_space
         else:
             return self._env.observation_space
@@ -115,14 +145,28 @@ class EnvWrapper(gym.Env, ABC):
         self.hybrid_obs = mode
 
     def _get_obs(self):
-        if self.from_pixels:
+        if self.from_pixels or self.rrl:
             imgs = []
             for c in self.cameras:
                 imgs.append(self.render(mode='rgb_array', camera_id=c))
-            if self.channels_first:
-                pixel_obs = np.concatenate(imgs, axis=0)
-            else:
-                pixel_obs = np.concatenate(imgs, axis=2)
+            if not self.rrl :
+                if self.channels_first:
+                    pixel_obs = np.concatenate(imgs, axis=0)
+                else:
+                    pixel_obs = np.concatenate(imgs, axis=2)
+            else :
+                new_imgs = []
+                for img in imgs :
+                    if img.shape[0] == 3:
+                        img = img.transpose((1,2,0))
+                    PIL_img = Image.fromarray(img)
+                    img = self.transform(PIL_img)
+                    new_imgs.append(img)
+                pixel_obs = torch.stack(new_imgs).to(self.rrl_encoder.device)
+
+            if self.rrl :
+                pixel_obs = self.rrl_encoder.get_features(pixel_obs)
+
             if self.hybrid_obs:
                 return [pixel_obs, self._get_hybrid_state()]
             else:
@@ -200,10 +244,18 @@ class EnvWrapper(gym.Env, ABC):
 
     def _get_viewer(self, camera_id):
         if self.viewer is None:
-            from mujoco_py import GlfwContext
-            GlfwContext(offscreen=True)
-            self.viewer = mujoco_py.MjRenderContextOffscreen(self._env.sim, -1)
-        self.viewer_setup(camera_id)
+            MAX_GPU_ID = 8
+            # from mujoco_py import GlfwContext
+            # GlfwContext(offscreen=True)
+            for device_id in reversed(range(MAX_GPU_ID)):
+                try:
+                    print("Trying GPU for rendering", device_id)
+                    self.viewer = mujoco_py.MjRenderContextOffscreen(self._env.sim, device_id=device_id)
+                    break
+                except:
+                    pass
+            if self.viewer is None:
+                raise Exception("Can't build GPU")
         return self.viewer
 
     def get_body_com(self, body_name):
@@ -212,6 +264,68 @@ class EnvWrapper(gym.Env, ABC):
     def state_vector(self):
         return self._env.state_vector
 
+class MjrlWrapper(EnvWrapper):
+    @property
+    def _max_episode_steps(self):
+        return self._env._max_episode_steps
+
+    def render(self, mode='human', camera_id=0, height=None, width=None):
+        if mode == 'human':
+            try:
+                self.env.env.mujoco_render_frames = True
+                self.env.env.mj_render()
+            except:
+                self.env.render()
+
+        if height is None:
+            height = self.height
+        if width is None:
+            width = self.width
+
+        if mode == 'rgb_array':
+            if isinstance(self, GymEnvWrapper):
+                self._env.unwrapped._render_callback()
+            viewer = self._get_viewer(camera_id)
+            # Calling render twice to fix Mujoco change of resolution bug.
+            viewer.render(width, height, camera_id=camera_id)
+            # window size used for old mujoco-py:
+            data = viewer.read_pixels(width, height, depth=False)
+            # original image is upside-down, so flip it
+            data = data[::-1, :, :]
+            if self.channels_first:
+                data = data.transpose((2, 0, 1))
+            return data
+
+    @property
+    def observation_space(self):
+        if self.from_pixels or self.rrl:
+            return self._observation_space
+        else:
+            return self._env.observation_space
+
+    def set_special_reset(self, mode):
+        self.special_reset = mode
+
+    def _get_hybrid_state(self):
+        if self.domain_name in MJ_ENVS :
+            env_state = self._env.get_env_state()
+            hybrid_state = env_state['qpos']
+            if self.domain_name == 'pen-v0':
+                hybrid_state = hybrid_state[:-6]
+            elif self.domain_name == 'door-v0':
+                hybrid_state = hybrid_state[4:-2]
+            elif self.domain_name == 'hammer-v0':
+                hybrid_state = hybrid_state[2:-7]
+            elif self.domain_name == 'relocate-v0':
+                hybrid_state = hybrid_state[6:-6]
+        if self.domain_name in MJRL_ENVS :
+            env_state  = self._env.get_env_state()
+            hybrid_state = np.hstack((env_state['qp'], env_state['qv']))
+
+        return hybrid_state
+
+    def evaluate_success(self, paths):
+        return self._env.evaluate_success(paths)
 
 class GymEnvWrapper(EnvWrapper):
     def change_camera(self):
