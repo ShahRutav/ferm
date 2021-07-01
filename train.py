@@ -24,10 +24,10 @@ import os
 import hydra
 from omegaconf import DictConfig, OmegaConf, open_dict
 
-os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
+#os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
 MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
-MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0'}
+MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0'}
 RRL_ENCODERS = {'resnet34'}
 
 def parse_args():
@@ -389,7 +389,7 @@ def main(args : DictConfig):
         load_dir=args.replay_buffer_load_dir
     )
 
-    if args.demo_model_dir is not None:  # collect demonstrations using a state-trained expert
+    if args.demo_model_dir is not None and args.demo_samples > 0:  # collect demonstrations using a state-trained expert
         print("Collecting demo {} samples.".format(args.demo_samples))
         episode_step, done = 0, True
         state_obs, obs = None, None
@@ -558,7 +558,6 @@ def main(args : DictConfig):
                     print("Warming up cpc for " + str(args.warmup_cpc) + ' steps.')
                     agent.update_cpc_only(replay_buffer, L, step=0)
                     print('Warmed up cpc.')
-
         # run training update
         time_tmp = time.time()
 

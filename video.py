@@ -3,7 +3,7 @@ import os
 
 
 class VideoRecorder(object):
-    def __init__(self, dir_name, height=256, width=256, camera_id=0, fps=30):
+    def __init__(self, dir_name, height=256, width=256, camera_id=0, fps=1):
         self.dir_name = dir_name
         self.height = height
         self.width = width
@@ -28,6 +28,8 @@ class VideoRecorder(object):
             except TypeError:
                 frame = env.render(
                     mode='rgb_array',
+                    height = self.height,
+                    width = self.width
                 )
             if frame.shape[0] == 3:
                 frame = frame.transpose(1, 2, 0)
