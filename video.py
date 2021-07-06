@@ -3,7 +3,7 @@ import os
 
 
 class VideoRecorder(object):
-    def __init__(self, dir_name, height=256, width=256, camera_id=0, fps=1):
+    def __init__(self, dir_name, height=480, width=640, camera_id=0, fps=5):
         self.dir_name = dir_name
         self.height = height
         self.width = width

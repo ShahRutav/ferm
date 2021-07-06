@@ -20,4 +20,9 @@ export PATH="/home/bt1/18CS10050/anaconda3/bin:$PATH"
 #export PATH="/home/bt1/18CS10050/anaconda3/envs/pytorch_sac/bin:$PATH"
 export PATH="/home/bt1/18CS10050/anaconda3/envs/dense/bin:$PATH"
 
-CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 domain_name=FrankaRelocateBoxFixed-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 
+CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=SAC_letsee critic_tau=0.05 critic_target_update_freq=1 domain_name=FrankaRelocateBoxRandom-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=SAC_target_ahead critic_tau=0.01 critic_target_update_freq=1 domain_name=FrankaRelocateBoxFixed-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=SAC_target_ahead critic_tau=0.001 critic_target_update_freq=1 domain_name=FrankaRelocateBoxFixed-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=SAC_target_ahead critic_tau=0.05 critic_target_update_freq=2 domain_name=FrankaRelocateBoxFixed-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=SAC_target_ahead critic_tau=0.01 critic_target_update_freq=2 domain_name=FrankaRelocateBoxFixed-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=SAC_target_ahead critic_tau=0.001 critic_target_update_freq=2 domain_name=FrankaRelocateBoxFixed-v0 save_video=True --config-path config --config-name sac_mjrl.yaml 

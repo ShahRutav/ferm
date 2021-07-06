@@ -355,7 +355,7 @@ def main(args : DictConfig):
 
     print("Working in directory:", args.work_dir)
 
-    video = VideoRecorder(video_dir if args.save_video else None, camera_id=args.cameras[0], height=100, width=100)
+    video = VideoRecorder(video_dir if args.save_video else None, camera_id=args.cameras[0], height=480, width=640)
 
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
         OmegaConf.save(config=args, f=f.name)
