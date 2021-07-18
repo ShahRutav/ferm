@@ -27,7 +27,7 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 #os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
 MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
-MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0'}
+MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0', 'FrankaPushRandom-v0', 'FrankaPushFixed-v0'}
 RRL_ENCODERS = {'resnet34'}
 
 def parse_args():

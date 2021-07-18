@@ -53,7 +53,7 @@ replay_buffer_load_dir:
 
 demo_samples: 0
 demo_model_step: 0
-demo_model_dir: ../resnet/hand_dapg/dapg/policies/
+demo_model_dir: 
 demo_special_reset: 
 success_demo_only: False
 
