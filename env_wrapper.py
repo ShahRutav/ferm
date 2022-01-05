@@ -9,10 +9,7 @@ import mj_envs
 #from mjrl.models.feature_extractor import Encoder
 from PIL import Image
 import torch
-
-MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
-MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0', 'FrankaPushRandom-v0', 'FrankaPushFixed-v0'}
-RRL_ENCODERS = {'resnet34'}
+from utils import MJ_ENVS, MJRL_ENVS, RRL_ENCODERS
 
 def change_fetch_model(change_model):
     import os
@@ -33,7 +30,8 @@ def change_fetch_model(change_model):
 
 def make(domain_name, task_name, seed, from_pixels, height, width, cameras=range(1),
          visualize_reward=False, frame_skip=None, reward_type='dense', change_model=False, encoder_type=None):
-    if domain_name in MJ_ENVS or domain_name in MJRL_ENVS:
+    if domain_name in MJ_ENVS or domain_name in MJRL_ENVS or 'kitchen' in domain_name:
+        print(gym.envs.registry.all())
         env = gym.make(domain_name)
         print(encoder_type)
         env = MjrlWrapper(env, from_pixels=from_pixels, cameras=cameras, height=height, width=width, domain_name = domain_name, encoder_type=encoder_type)

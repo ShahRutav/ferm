@@ -110,11 +110,14 @@ hydra:
     hydra: []
     task:
     - seed=2
-    - domain_name=FrankaRelocateBoxFixed-v0
+    - task_name=temp
+    - critic_tau=0.05
+    - critic_target_update_freq=1
+    - domain_name=kitchen_knob1_off-v3
     - save_video=True
   job:
     name: train
-    override_dirname: domain_name=FrankaRelocateBoxFixed-v0,save_video=True,seed=2
+    override_dirname: critic_target_update_freq=1,critic_tau=0.05,domain_name=kitchen_knob1_off-v3,save_video=True,seed=2,task_name=temp
     id: ???
     num: ???
     config_name: sac_mjrl.yaml

@@ -1,9 +1,9 @@
 # Environment Parameters
 
 domain_name: mjrl_peg_insertion-v0
-task_name: FERM 
+task_name: FERM
 reward_type: dense
-special_reset: 
+special_reset:
 cameras: [0]
 action_repeat: 1
 
@@ -11,10 +11,10 @@ action_repeat: 1
 
 agent: rad_sac
 encoder_type: pixel
-observation_type: hybrid 
-pre_transform_image_size: 100 
+observation_type: hybrid
+pre_transform_image_size: 100
 image_size: 84
-frame_stack: 1 
+frame_stack: 1
 detach_encoder: False
 data_augs: crop
 latent_dim: 512
@@ -34,8 +34,8 @@ num_eval_episodes: 25
 change_model: False
 synch_update: False
 two_conv: False
-model_dir: 
-model_step: 
+model_dir:
+model_step:
 
 # Warming up parameters
 
@@ -47,14 +47,14 @@ warmup_offline_sac:
 # Replay Buffer
 
 replay_buffer_capacity: 1000000
-replay_buffer_load_dir: 
+replay_buffer_load_dir:
 
 # Expert Demos
 
 demo_samples: 10000
 demo_model_step: 0
 demo_model_dir: ../resnet/hand_dapg/dapg/policies/
-demo_special_reset: 
+demo_special_reset:
 success_demo_only: False
 
 # Sac params
@@ -84,8 +84,9 @@ critic_target_update_freq: 1
 save_tb: False
 save_buffer: False
 save_video: False
-save_model: False 
+save_model: False
 save_sac: False
+save_grad_cam: True
 
 eval_freq: 20000
 log_interval: 100

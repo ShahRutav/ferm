@@ -23,12 +23,11 @@ import pickle
 import os
 import hydra
 from omegaconf import DictConfig, OmegaConf, open_dict
+import mj_envs
+from utils import MJ_ENVS, MJRL_ENVS, RRL_ENCODERS
 
 #os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
-MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
-MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0', 'FrankaPushRandom-v0', 'FrankaPushFixed-v0'}
-RRL_ENCODERS = {'resnet34'}
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -106,6 +105,7 @@ def parse_args():
     parser.add_argument('--save_video', default=False, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_sac', default=False, action='store_true')
+    parser.add_argument('--save_grad_cam', default=False, action='store_true')
     parser.add_argument('--detach_encoder', default=False, action='store_true')
 
     parser.add_argument('--data_augs', default='crop', type=str)
@@ -130,6 +130,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
             obs = env.reset()
             video.init(enabled=(i == 0))
             done = False
+            obs_list = []
             episode_reward = 0
             episode_success = False
             while not done:
@@ -140,6 +141,12 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                         obs[0] = utils.center_crop_image(obs[0], args.image_size)
                     else:
                         obs = utils.center_crop_image(obs, args.image_size)
+                obs_list.append(obs)
+                #if isinstance(obs, list): # For grad cam
+                #    obs_list.append(utils.center_crop_image(obs[0], args.image_size) )
+                #else:
+                #    obs_list.append(utils.center_crop_image(obs, args.image_size))
+                #obs_list.append(obs)
                 with utils.eval_mode(agent):
                     if sample_stochastically:
                         action = agent.sample_action(obs)
@@ -151,6 +158,9 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                 video.record(env)
                 episode_reward += reward
             num_successes += episode_success
+
+            if args.save_grad_cam and (i==0):
+                agent.visualize_actor_feats(obs_list[:10], step, save_dir=utils.make_dir(os.path.join(args.work_dir, 'grad_cam')) )
 
             video.save('%d.mp4' % step)
             L.log('eval/' + prefix + 'episode_reward', episode_reward, step)
@@ -190,7 +200,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         log_data[key][step]['std_ep_reward'] = std_ep_reward
         log_data[key][step]['env_step'] = step * args.action_repeat
         if args.domain_name in MJ_ENVS or args.domain_name in MJRL_ENVS:
-            paths = sample_paths(num_traj=25, env=env, agent=agent , eval_mode = True, 
+            paths = sample_paths(num_traj=25, env=env, agent=agent , eval_mode = True,
                                 horizon=env._max_episode_steps, base_seed=123,
                                 num_cpu=1, args=args)
             success_rate_mjrl = env.evaluate_success(paths)
@@ -369,11 +379,11 @@ def main(args : DictConfig):
         cpf = 3 * len(args.cameras)
         obs_shape = (cpf * args.frame_stack, args.image_size, args.image_size)
         pre_aug_obs_shape = (cpf * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
-    elif args.encoder_type in RRL_ENCODERS : 
-        #obs_shape = (args.frame_stack, *env.observation_space.shape)   
-        #pre_aug_obs_shape = (args.frame_stack, *env.observation_space.shape)   
+    elif args.encoder_type in RRL_ENCODERS :
+        #obs_shape = (args.frame_stack, *env.observation_space.shape)
+        #pre_aug_obs_shape = (args.frame_stack, *env.observation_space.shape)
         obs_shape = env.observation_space.shape # CHANGE : Cannot use frame_stack :(
-        pre_aug_obs_shape = env.observation_space.shape  
+        pre_aug_obs_shape = env.observation_space.shape
     else:
         obs_shape = env.observation_space.shape
         pre_aug_obs_shape = obs_shape

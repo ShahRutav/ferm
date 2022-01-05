@@ -1,0 +1,33 @@
+#!/bin/sh
+#$ -cwd
+#PBS -N testpy
+#PBS -q workq
+#PBS -V
+
+
+export MUJOCO_GL="osmesa"
+export MJLIB_PATH=$HOME/.mujoco/mujoco200/bin/libmujoco200.so
+export MJKEY_PATH=$HOME/.mujoco/mjkey.txt
+export MUJOCO_PY_MJPRO_PATH=$HOME/.mujoco/mujoco200/
+export MUJOCO_PY_MJKEY_PATH=$HOME/.mujoco/mujoco200/mjkey.txt
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/bt1/18CS10050/.mujoco/mujoco200/bin
+export PATH="$PATH:$HOME/rpm/usr/bin"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/rpm/usr/lib:$HOME/rpm/usr/lib64"
+export LDFLAGS="-L$HOME/rpm/usr/lib -L$HOME/rpm/usr/lib64"
+export CPATH="$CPATH:$HOME/rpm/usr/include"
+export PATH="/home/bt1/18CS10050/anaconda3/bin:$PATH"
+#export PATH="/home/bt1/18CS10050/anaconda3/envs/pytorch_sac/bin:$PATH"
+export PATH="/home/bt1/18CS10050/anaconda3/envs/dense/bin:$PATH"
+
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_micro_open-v3 observation_type=pixel cameras=[2,1] --config-path config --config-name ferm_mjrl_grad_cam
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_micro_close-v3 observation_type=pixel cameras=[2,1] --config-path config --config-name ferm_mjrl_grad_cam
+#
+CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_sdoor_open-v3 observation_type=pixel cameras=[3,4] --config-path config --config-name ferm_mjrl_grad_cam
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_sdoor_close-v3 observation_type=pixel cameras=[3,4] --config-path config --config-name ferm_mjrl_grad_cam
+#
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_light_on-v3 observation_type=pixel cameras=[7,8] --config-path config --config-name ferm_mjrl_grad_cam
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_light_off-v3 observation_type=pixel cameras=[7,8] --config-path config --config-name ferm_mjrl_grad_cam
+
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_knob1_on-v3 observation_type=pixel cameras=[5,6] --config-path config --config-name ferm_mjrl_grad_cam
+#CUDA_VISIBLE_DEVICES=0,1 python train.py seed=2 task_name=grad_cam_test domain_name=kitchen_knob1_off-v3 observation_type=pixel cameras=[5,6] --config-path config --config-name ferm_mjrl_grad_cam

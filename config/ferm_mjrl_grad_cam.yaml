@@ -1,7 +1,7 @@
 # Environment Parameters
 
 domain_name: mjrl_peg_insertion-v0
-task_name: SAC
+task_name: FERM
 reward_type: dense
 special_reset:
 cameras: [0]
@@ -9,12 +9,12 @@ action_repeat: 1
 
 # RRL/CURL/RAD Training Parameters
 
-agent: curl_sac
-encoder_type: identity
-observation_type: state
-pre_transform_image_size: 224
-image_size: 224
-frame_stack: 3
+agent: rad_sac
+encoder_type: pixel
+observation_type: hybrid
+pre_transform_image_size: 100
+image_size: 84
+frame_stack: 1
 detach_encoder: False
 data_augs: crop
 latent_dim: 512
@@ -25,8 +25,8 @@ num_layers: 4
 num_filters: 32
 
 num_updates: 1
-init_steps: 2000
-num_train_steps: 1000000
+init_steps: 1000
+num_train_steps: 6000000
 batch_size: 128
 hidden_dim: 1024
 num_eval_episodes: 25
@@ -41,12 +41,12 @@ model_step:
 
 bc_only: False
 warmup_cpc: 0
-warmup_cpc_ema: False
-warmup_offline_sac: 0
+warmup_cpc_ema: True
+warmup_offline_sac:
 
 # Replay Buffer
 
-replay_buffer_capacity: 100000
+replay_buffer_capacity: 1000000
 replay_buffer_load_dir:
 
 # Expert Demos
@@ -86,10 +86,10 @@ save_buffer: False
 save_video: False
 save_model: False
 save_sac: False
-save_grad_cam: False
+save_grad_cam: True
 
-eval_freq: 5000
-log_interval: 5000
+eval_freq: 20000
+log_interval: 100
 log_networks_freq: 1000000
 
 seed: 1

@@ -1,5 +1,5 @@
-domain_name: FrankaRelocateBoxFixed-v0
-task_name: SAC
+domain_name: kitchen_knob1_off-v3
+task_name: temp
 reward_type: dense
 special_reset: null
 cameras:
@@ -38,7 +38,7 @@ replay_buffer_capacity: 1000000
 replay_buffer_load_dir: null
 demo_samples: 0
 demo_model_step: 0
-demo_model_dir: ../resnet/hand_dapg/dapg/policies/
+demo_model_dir: null
 demo_special_reset: null
 success_demo_only: false
 discount: 0.99
@@ -59,6 +59,7 @@ save_buffer: false
 save_video: true
 save_model: false
 save_sac: false
+save_grad_cam: false
 eval_freq: 5000
 log_interval: 5000
 log_networks_freq: 1000000

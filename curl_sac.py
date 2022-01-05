@@ -8,6 +8,10 @@ import math
 import utils
 from encoder import make_encoder
 import data_augs as rad
+from pytorch_grad_cam import GradCAMRL
+from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
+from PIL import Image
+import os
 
 LOG_FREQ = 10000
 
@@ -377,6 +381,29 @@ class CurlSacAgent(object):
         self.training = None
         self.train()
         self.critic_target.train()
+
+    def visualize_actor_feats(self, obs, step, save_dir):
+        # detach encoder, so we don't update it with the actor loss
+        #if type(obs) is np.ndarray:
+        #    obs = torch.from_numpy(obs).to(self.device)
+        target_layers = [self.actor.encoder.convs[0]]
+        with GradCAMRL(actor=self.actor, critic=self.critic, target_layers=target_layers, use_cuda=False) as cam:
+            hybrid_state = None
+            if isinstance(obs, list):
+                if isinstance(obs[0], list):
+                    hybrid_states = [torch.from_numpy(state[1]) for state in obs]
+                    input_tensor = [torch.from_numpy(state[0]) for state in obs]
+                else:
+                    input_tensor = [torch.from_numpy(state) for state in obs]
+            if isinstance(input_tensor, list):
+                input_tensor = torch.stack(input_tensor).to(self.device)
+            grayscale_cam = cam(input_tensor=input_tensor, alpha=self.alpha, target_category=None)
+            for ind in range(input_tensor.shape[0]):
+                grayscale_cam_ind = grayscale_cam[ind, :]
+                input_tensor_ind = np.asarray(input_tensor[ind,:].permute(1, 2, 0).data.cpu())/255.
+                visualization = show_cam_on_image(input_tensor_ind[:,:,-3:], grayscale_cam_ind, use_rgb=True)
+                visualization_pil = Image.fromarray(visualization)
+                visualization_pil.save(os.path.join(save_dir, f'img{step:06d}_img{ind:03d}.png'))
 
     def train(self, training=True):
         self.training = training

@@ -9,6 +9,10 @@ from torch.utils.data import Dataset, DataLoader
 import time
 from skimage.util.shape import view_as_windows
 
+MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
+MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0', 'FrankaPushRandom-v0', 'FrankaPushFixed-v0'}
+RRL_ENCODERS = {'resnet34'}
+
 
 class eval_mode(object):
     def __init__(self, *models):
@@ -242,12 +246,12 @@ class ReplayBuffer(Dataset):
             actions = torch.as_tensor(self.actions[idxs], device=self.device)
             rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
             not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
-            
+
             #if self.obs_dtype == np.uint8:
             #    obses = torch.as_tensor(random_crop(self.obses[idx: idx + self.batch_size], self.image_size), device=self.device).float() / 255.
             #    next_obses = torch.as_tensor(random_crop(self.next_obses[idx: idx + self.batch_size], self.image_size), device=self.device).float() / 255.
             #    actions, rewards, not_dones = [torch.as_tensor(k[idx: idx + self.batch_size], device=self.device) for k in [self.actions, self.rewards, self.not_dones]]
-            #elif self.obs_dtype == np.float32 : 
+            #elif self.obs_dtype == np.float32 :
             #    obses = torch.as_tensor(self.obses[idx: idx + self.batch_size], device=self.device).float() / 255.
             #    next_obses = torch.as_tensor(self.next_obses[idx: idx + self.batch_size], device=self.device).float() / 255.
             #    actions, rewards, not_dones = [torch.as_tensor(k[idx: idx + self.batch_size], device=self.device) for k in [self.actions, self.rewards, self.not_dones]]
