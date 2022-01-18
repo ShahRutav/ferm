@@ -391,13 +391,15 @@ class CurlSacAgent(object):
             hybrid_state = None
             if isinstance(obs, list):
                 if isinstance(obs[0], list):
-                    hybrid_states = [torch.from_numpy(state[1]) for state in obs]
+                    hybrid_state = [torch.from_numpy(state[1]) for state in obs]
                     input_tensor = [torch.from_numpy(state[0]) for state in obs]
+                    hybrid_state = torch.stack(hybrid_state).float().to(self.device)
                 else:
                     input_tensor = [torch.from_numpy(state) for state in obs]
             if isinstance(input_tensor, list):
                 input_tensor = torch.stack(input_tensor).to(self.device)
-            grayscale_cam = cam(input_tensor=input_tensor, alpha=self.alpha, target_category=None)
+
+            grayscale_cam = cam(input_tensor=input_tensor, alpha=self.alpha, target_category=None, hybrid_state=hybrid_state)
             for ind in range(input_tensor.shape[0]):
                 grayscale_cam_ind = grayscale_cam[ind, :]
                 input_tensor_ind = np.asarray(input_tensor[ind,:].permute(1, 2, 0).data.cpu())/255.

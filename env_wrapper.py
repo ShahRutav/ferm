@@ -31,9 +31,7 @@ def change_fetch_model(change_model):
 def make(domain_name, task_name, seed, from_pixels, height, width, cameras=range(1),
          visualize_reward=False, frame_skip=None, reward_type='dense', change_model=False, encoder_type=None):
     if domain_name in MJ_ENVS or domain_name in MJRL_ENVS or 'kitchen' in domain_name:
-        print(gym.envs.registry.all())
         env = gym.make(domain_name)
-        print(encoder_type)
         env = MjrlWrapper(env, from_pixels=from_pixels, cameras=cameras, height=height, width=width, domain_name = domain_name, encoder_type=encoder_type)
     elif 'RealArm' not in domain_name:
         change_fetch_model(change_model)
@@ -305,7 +303,7 @@ class MjrlWrapper(EnvWrapper):
         self.special_reset = mode
 
     def _get_hybrid_state(self):
-        if self.domain_name in MJ_ENVS :
+        if self.domain_name in MJ_ENVS or 'kitchen' in self.domain_name:
             env_state = self._env.get_env_state()
             hybrid_state = env_state['qpos']
             if self.domain_name == 'pen-v0':
@@ -316,9 +314,13 @@ class MjrlWrapper(EnvWrapper):
                 hybrid_state = hybrid_state[2:-7]
             elif self.domain_name == 'relocate-v0':
                 hybrid_state = hybrid_state[6:-6]
-        if self.domain_name in MJRL_ENVS :
+            elif 'kitchen' in self.domain_name:
+                hybrid_state = hybrid_state[:9]
+        elif self.domain_name in MJRL_ENVS :
             env_state  = self._env.get_env_state()
             hybrid_state = np.hstack((env_state['qp'], env_state['qv']))
+        else :
+            raise Exception
 
         return hybrid_state
 
