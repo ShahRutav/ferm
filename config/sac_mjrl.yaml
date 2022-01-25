@@ -18,7 +18,7 @@ frame_stack: 3
 detach_encoder: False
 data_augs: crop
 latent_dim: 512
-encoder_feature_dim: 50
+encoder_feature_dim: 128
 encoder_lr: 1e-3
 encoder_tau: 0.05
 num_layers: 4

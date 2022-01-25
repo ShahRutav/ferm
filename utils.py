@@ -10,7 +10,7 @@ import time
 from skimage.util.shape import view_as_windows
 
 MJ_ENVS = {'pen-v0', 'hammer-v0', 'door-v0', 'relocate-v0'}
-MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0', 'FrankaPushRandom-v0', 'FrankaPushFixed-v0'}
+MJRL_ENVS = {'mjrl_peg_insertion-v0', 'mjrl_reacher_7dof-v0', 'FrankaRelocateBoxFixed-v0', 'FrankaRelocateBoxRandom-v0', 'FrankaPushRandom-v0', 'FrankaPushFixed-v0', 'reorient-random-v0', 'reorient-random-full-v0', 'reorient-random-v1', 'reorient-random-full-v1'}
 RRL_ENCODERS = {'resnet34'}
 
 
